@@ -1,0 +1,6 @@
+The `pages` directory holds all of your wiki pages in markdown format.
+
+The application will watch this directory for changes and render the HTML
+content accordingly.
+
+Backing up this directory is sufficient to preserve your entire wiki.

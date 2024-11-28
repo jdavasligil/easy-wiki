@@ -11,5 +11,6 @@
   "license": "ISC",
   "dependencies": {
     "markdown-it": "^14.1.0"
-  }
+  },
+  "type": "module"
 }
