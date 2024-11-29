@@ -1,6 +1,5 @@
 import MarkdownIt from "markdown-it";
 import fs from 'node:fs';
-import readline from 'readline';
 
 const pageDir = 'pages';
 const htmlDir = 'wiki/generated';
@@ -79,6 +78,14 @@ function renderAll() {
   }
 }
 
+function deletePage(pagename) {
+  try {
+    fs.unlinkSync(`${htmlDir}/${pagename}.html`);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
 function updateIndex() {
   const pages = readPages()
     .filter(page => page.endsWith('.md'))
@@ -86,16 +93,18 @@ function updateIndex() {
     .join(' ');
   console.log(pages);
 
-  const indexHTML = fs.readFileSync(`wiki/index.html`, 'utf8');
+  const indexHTML = fs.readFileSync(indexFile, 'utf8');
   const pageIdx = indexHTML.indexOf(indexPageMark);
   const pageEndIdx = indexHTML.indexOf(indexPageEnd);
-  fs.writeFileSync('wiki/index.html', `
+  fs.writeFileSync(indexFile, `
 ${indexHTML.substring(0, pageIdx + indexPageMark.length)}
 ${pages}
 ${indexHTML.substring(pageEndIdx, indexHTML.length)}
 `.trim());
 }
 
+
+// Handle command line arguments.
 if (process.argv[2]) {
   const opt = process.argv[2].replace(/-*/, '');
   switch (opt) {
@@ -108,6 +117,7 @@ if (process.argv[2]) {
   }
 }
 
+// Begin file watching for markdown updates.
 fs.watch(pageDir, (eventType, filename) => {
   if (!filename)
     return;
@@ -119,11 +129,13 @@ fs.watch(pageDir, (eventType, filename) => {
 
   if (eventType === "change") {
     console.log(`filename: ${filename}`);
-    console.log("Update HTML");
     renderPage(pagename);
+    console.log("HTML Updated");
     updateIndex();
   } else if (!fs.existsSync(`${pageDir}/${filename}`)) {
     console.log(`filename: ${filename}`);
+    deletePage(pagename);
     console.log("Page Deleted");
+    updateIndex();
   }
 });
