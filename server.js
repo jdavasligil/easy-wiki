@@ -1,5 +1,18 @@
 import MarkdownIt from "markdown-it";
-import fs from 'node:fs'
+import fs from 'node:fs';
+import readline from 'readline';
+
+const pageDir = 'pages';
+const htmlDir = 'wiki/generated';
+const indexFile = 'wiki/index.html';
+const indexPageMark = '<!-- PAGES -->';
+const indexPageEnd = '<!-- END -->';
+
+const helpText = `
+Usage: server.js [<optional-argument>]
+  options:
+    -r    Re-render all pages on startup
+`;
 
 const md = MarkdownIt({
   // Enable HTML tags in source
@@ -38,38 +51,78 @@ const md = MarkdownIt({
 
 function readPages() {
   try {
-    return fs.readdirSync('pages');
+    return fs.readdirSync(pageDir);
   } catch (err) {
     console.error(err);
     return [];
   }
 }
 
-// Loop through .md files and render to html
-//(() => {
-//  const pages = readPages();
-//  console.log(pages);
-//  try {
-//    const data = fs.readFileSync('pages/test.md', 'utf8');
-//    console.log(md.render(data));
-//  } catch (err) {
-//    console.error(err);
-//  }
-//})();
+function renderPage(pagename) {
+  try {
+    const mdFile = fs.readFileSync(`${pageDir}/${pagename}.md`, 'utf8');
+    const html = md.render(mdFile);
+    // TODO: Use html template.
+    fs.writeFileSync(`${htmlDir}/${pagename}.html`, html);
+  } catch (err) {
+    console.error(err);
+  }
+}
 
-fs.watch('pages', (eventType, filename) => {
+function renderAll() {
+  const pages = readPages();
+  for (const page of pages) {
+    const [ pagename, ext ] = page.split(".");
+    if (ext === 'md') {
+      renderPage(pagename);
+    }
+  }
+}
+
+function updateIndex() {
+  const pages = readPages()
+    .filter(page => page.endsWith('.md'))
+    .map(page => page.split('.')[0])
+    .join(' ');
+  console.log(pages);
+
+  const indexHTML = fs.readFileSync(`wiki/index.html`, 'utf8');
+  const pageIdx = indexHTML.indexOf(indexPageMark);
+  const pageEndIdx = indexHTML.indexOf(indexPageEnd);
+  fs.writeFileSync('wiki/index.html', `
+${indexHTML.substring(0, pageIdx + indexPageMark.length)}
+${pages}
+${indexHTML.substring(pageEndIdx, indexHTML.length)}
+`.trim());
+}
+
+if (process.argv[2]) {
+  const opt = process.argv[2].replace(/-*/, '');
+  switch (opt) {
+  case 'r':
+    renderAll();
+    updateIndex();
+    break;
+  default:
+    console.log(helpText);
+  }
+}
+
+fs.watch(pageDir, (eventType, filename) => {
   if (!filename)
     return;
 
-  const [ base, ext ] = filename.split(".");
+  const [ pagename, ext ] = filename.split(".");
 
-  if (!base || ext !== "md")
+  if (!pagename || ext !== "md")
     return;
 
   if (eventType === "change") {
     console.log(`filename: ${filename}`);
     console.log("Update HTML");
-  } else if (!fs.existsSync(`pages/${filename}`)) {
+    renderPage(pagename);
+    updateIndex();
+  } else if (!fs.existsSync(`${pageDir}/${filename}`)) {
     console.log(`filename: ${filename}`);
     console.log("Page Deleted");
   }
