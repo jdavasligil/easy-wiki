@@ -6,6 +6,7 @@ const htmlDir = 'wiki/generated';
 const indexFile = 'wiki/index.html';
 const indexPageMark = '<!-- PAGES -->';
 const indexPageEnd = '<!-- END -->';
+const pageTemplate = fs.readFileSync(`page-template.html`, 'utf8');
 
 const helpText = `
 Usage: server.js [<optional-argument>]
@@ -22,7 +23,7 @@ const md = MarkdownIt({
   xhtmlOut: false,
 
   // Convert '\n' in paragraphs into <br>
-  breaks: true,
+  breaks: false,
 
   // CSS language prefix for fenced blocks. Can be
   // useful for external highlighters.
@@ -60,8 +61,9 @@ function readPages() {
 function renderPage(pagename) {
   try {
     const mdFile = fs.readFileSync(`${pageDir}/${pagename}.md`, 'utf8');
-    const html = md.render(mdFile);
-    // TODO: Use html template.
+    const titleIdx = pageTemplate.indexOf('</title>');
+    const bodyIdx = pageTemplate.indexOf('</body>');
+    const html = pageTemplate.substring(0, titleIdx) + pagename + pageTemplate.substring(titleIdx, bodyIdx) +  md.render(mdFile) + pageTemplate.substring(bodyIdx);
     fs.writeFileSync(`${htmlDir}/${pagename}.html`, html);
   } catch (err) {
     console.error(err);

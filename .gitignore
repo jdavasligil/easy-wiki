@@ -1,3 +1,4 @@
 node_modules
 pages/*.md
 wiki/generated/*.html
+dist/*.js

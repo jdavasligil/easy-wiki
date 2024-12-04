@@ -1,4 +1,1 @@
-<p>The <code>pages</code> directory holds all of your wiki pages in markdown format.</p>
-<p>The application will watch this directory for changes and render the HTML<br>
-content accordingly.</p>
-<p>Backing up this directory is sufficient to preserve your entire wiki.</p>
+Do not edit anything in this directory. This is where rendered pages are stored.
