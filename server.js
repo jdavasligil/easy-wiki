@@ -3,9 +3,7 @@ import fs from 'node:fs';
 
 const pageDir = 'pages';
 const htmlDir = 'wiki/generated';
-const indexFile = 'wiki/index.html';
-const indexPageMark = '<!-- PAGES -->';
-const indexPageEnd = '<!-- END -->';
+const indexFile = 'wiki/index.js';
 const pageTemplate = fs.readFileSync(`page-template.html`, 'utf8');
 
 const helpText = `
@@ -88,21 +86,19 @@ function deletePage(pagename) {
   }
 }
 
+
+// TODO: Refine to replace generated area. Include a map for category => pageIDs.
 function updateIndex() {
   const pages = readPages()
     .filter(page => page.endsWith('.md'))
-    .map(page => page.split('.')[0])
-    .join(' ');
+    .map(page => '"' + page.split('.')[0] + '"')
+    .join(',');
   console.log(pages);
 
-  const indexHTML = fs.readFileSync(indexFile, 'utf8');
-  const pageIdx = indexHTML.indexOf(indexPageMark);
-  const pageEndIdx = indexHTML.indexOf(indexPageEnd);
-  fs.writeFileSync(indexFile, `
-${indexHTML.substring(0, pageIdx + indexPageMark.length)}
-${pages}
-${indexHTML.substring(pageEndIdx, indexHTML.length)}
-`.trim());
+  const indexJS = fs.readFileSync(indexFile, 'utf8');
+  const pageIdx = indexJS.indexOf('[');
+  const pageEndIdx = indexJS.indexOf(']');
+  fs.writeFileSync(indexFile, `${indexJS.substring(0, pageIdx + 1)}${pages}${indexJS.substring(pageEndIdx)}`.trim());
 }
 
 
