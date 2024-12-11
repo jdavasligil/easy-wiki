@@ -30,7 +30,7 @@ function updateSearchResults() {
     let result = document.createElement('a');
     result.innerText = nameToTitle(page);
     result.className = "search-result";
-    result.href = `generated/${page}.html`;
+    result.href = "generated/" + page + ".html";
     resultNodes.push(result);
   }
   dropdown.replaceChildren(...resultNodes);
