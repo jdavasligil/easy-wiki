@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"log"
 	"os"
 	"path/filepath"
@@ -10,10 +12,10 @@ import (
 	"text/template"
 
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark-meta"
 	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 // A WikiConfig is a (de)serializable config which holds extensible settings.
@@ -23,11 +25,11 @@ type WikiConfig struct {
 	Language string `json:"language"`
 }
 
-// MetaData stores data about the pages.
-type MetaData struct {
+// JSMetaData stores data about the pages.
+type JSMetaData struct {
 	Pages []string `json:"pages"`
 	//PageToTags      map[string][]string `json:"pageTagsMap"`
-	CategoryToPages map[string][]string `json:"categoryToPages"`
+	CategoryToPageIDs map[string][]int `json:"categoryToPageIDs"`
 }
 
 // A StaticSiteGenerator generates static wiki site content.
@@ -35,7 +37,7 @@ type StaticSiteGenerator struct {
 	Path string
 
 	Config *WikiConfig
-	Meta   *MetaData
+	JSMeta *JSMetaData
 
 	HTMLTemplate *template.Template
 	CSSTemplate  *template.Template
@@ -49,9 +51,9 @@ type StaticSiteGenerator struct {
 // A _config.json file will be deserialized if present.
 func NewStaticSiteGenerator(path string) *StaticSiteGenerator {
 	cfg := &WikiConfig{}
-	meta := &MetaData{
-		Pages:           make([]string, 0, 128),
-		CategoryToPages: make(map[string][]string),
+	jsMeta := &JSMetaData{
+		Pages:             make([]string, 0, 128),
+		CategoryToPageIDs: make(map[string][]int),
 	}
 
 	cfgJSON, _ := os.ReadFile(filepath.Join(path, "_config.json"))
@@ -150,12 +152,12 @@ console.log("Done.");`
 	return &StaticSiteGenerator{
 		Path:         path,
 		Config:       cfg,
-		Meta:         meta,
+		JSMeta:       jsMeta,
 		HTMLTemplate: template.Must(template.New("layout").Parse(htmlTmpl)),
 		CSSTemplate:  template.Must(template.New("styles").Parse(cssTmpl)),
 		JSTemplate:   template.Must(template.New("script").Parse(jsTmpl)),
 		MDParser: goldmark.New(
-			goldmark.WithExtensions(extension.GFM),
+			goldmark.WithExtensions(extension.GFM, meta.Meta),
 			goldmark.WithRendererOptions(
 				html.WithUnsafe(),
 			),
@@ -253,7 +255,7 @@ func (ssg StaticSiteGenerator) RenderPages() {
 		return
 	}
 
-	for _, mdPage := range mdPages {
+	for pageID, mdPage := range mdPages {
 		mdNameExt := strings.Split(mdPage.Name(), ".")
 		mdName := strings.ToLower(mdNameExt[0])
 		mdExt := strings.Join(mdNameExt[1:], "")
@@ -262,7 +264,7 @@ func (ssg StaticSiteGenerator) RenderPages() {
 			continue
 		}
 
-		ssg.Meta.Pages = append(ssg.Meta.Pages, mdName)
+		ssg.JSMeta.Pages = append(ssg.JSMeta.Pages, mdName)
 
 		mdData, err := os.ReadFile(filepath.Join(mdPagesDir, mdPage.Name()))
 		if err != nil {
@@ -276,7 +278,26 @@ func (ssg StaticSiteGenerator) RenderPages() {
 			continue
 		}
 
-		ssg.MDParser.Convert(mdData, &htmlBuf)
+		ctx := parser.NewContext()
+		err = ssg.MDParser.Convert(mdData, &htmlBuf, parser.WithContext(ctx))
+		if err != nil {
+			log.Println(err)
+		}
+
+		metaData := meta.Get(ctx)
+		title, ok := metaData["Title"].(string)
+		category, ok := metaData["Category"].(string)
+
+		if title == "" || !ok {
+			title = ssg.TitleCaser.String(mdName)
+		}
+
+		if category != "" && ok {
+			if _, ok := ssg.JSMeta.CategoryToPageIDs[category]; !ok {
+				ssg.JSMeta.CategoryToPageIDs[category] = make([]int, 0)
+			}
+			ssg.JSMeta.CategoryToPageIDs[category] = append(ssg.JSMeta.CategoryToPageIDs[category], pageID)
+		}
 
 		err = ssg.HTMLTemplate.Execute(htmlFile, struct {
 			Title     string
@@ -284,7 +305,7 @@ func (ssg StaticSiteGenerator) RenderPages() {
 			IndexPath string
 			Body      string
 		}{
-			Title:     ssg.TitleCaser.String(mdName),
+			Title:     title,
 			CSSPath:   filepath.Join("..", "..", "styles.css"),
 			IndexPath: filepath.Join("..", "..", "index.html"),
 			Body:      strings.TrimSpace(htmlBuf.String()),
@@ -306,13 +327,13 @@ func (ssg StaticSiteGenerator) RenderJS() {
 	}
 	defer jsFile.Close()
 
-	metaData, err := json.Marshal(ssg.Meta)
+	jsMeta, err := json.Marshal(ssg.JSMeta)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	err = ssg.JSTemplate.Execute(jsFile, string(metaData))
+	err = ssg.JSTemplate.Execute(jsFile, string(jsMeta))
 	if err != nil {
 		log.Println(err)
 	}

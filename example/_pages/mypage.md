@@ -1,3 +1,7 @@
+---
+Title: My Glorious Page
+Category: Pages
+---
 # Header
 text goes here
 
