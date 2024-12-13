@@ -1,4 +1,8 @@
-.PHONY: all fmt tidy build clean
+ifeq ($(PREFIX),)
+	PREFIX := /usr/local
+endif
+
+.PHONY: all fmt tidy build clean install
 all: fmt tidy build
 
 fmt:
@@ -18,3 +22,9 @@ run:
 
 clean:
 	@go clean && rm -rf ./bin/*
+
+install:
+	install -D ./bin/ewik $(DESTDIR)$(PREFIX)/bin/
+
+uninstall:
+	rm /usr/local/bin/ewik
