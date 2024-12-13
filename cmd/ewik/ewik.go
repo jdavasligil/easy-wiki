@@ -23,15 +23,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"path/filepath"
 )
-
-func initialize() {
-	fmt.Println("Generate _config.toml")
-	fmt.Println("Create directories")
-	fmt.Println("Generate static files")
-}
 
 func main() {
 	var watchFlag bool
@@ -50,11 +43,12 @@ the pages directory.`
 		filePathString = "."
 	}
 	filePath := filepath.Join(filePathString)
-	fmt.Println("Wiki Path:", filePath)
 
 	ssg := NewStaticSiteGenerator(filePath)
 
 	if initFlag {
 		ssg.Initialize()
+	} else {
+		ssg.RenderAll()
 	}
 }
