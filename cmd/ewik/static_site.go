@@ -20,9 +20,13 @@ import (
 
 // A WikiConfig is a (de)serializable config which holds extensible settings.
 type WikiConfig struct {
-	Title    string `json:"title"`
-	Darkmode bool   `json:"darkmode"`
-	Language string `json:"language"`
+	Title     string `json:"title"`
+	Surface   string `json:"theme-background"`
+	Surface2  string `json:"theme-background2"`
+	Surface3  string `json:"theme-background3"`
+	OnSurface string `json:"theme-text"`
+	Primary   string `json:"theme-primary"`
+	Secondary string `json:"theme-secondary"`
 }
 
 // JSMetaData stores data about the pages.
@@ -50,7 +54,15 @@ type StaticSiteGenerator struct {
 // NewStaticSiteGenerator returns a StaticSiteGenerator.
 // A _config.json file will be deserialized if present.
 func NewStaticSiteGenerator(path string) *StaticSiteGenerator {
-	cfg := &WikiConfig{}
+	cfg := &WikiConfig{
+		Title:     "Easy Wiki",
+		Surface:   "#242424",
+		Surface2:  "#363636",
+		Surface3:  "#484848",
+		OnSurface: "#FFFFFF",
+		Primary:   "#C588F9",
+		Secondary: "#5E9ED6",
+	}
 	jsMeta := &JSMetaData{
 		Pages:             make([]string, 0, 128),
 		CategoryToPageIDs: make(map[string][]int),
@@ -59,6 +71,7 @@ func NewStaticSiteGenerator(path string) *StaticSiteGenerator {
 	cfgJSON, _ := os.ReadFile(filepath.Join(path, "_config.json"))
 	_ = json.Unmarshal(cfgJSON, cfg)
 
+	//------------------------- HTML TEMPLATE ----------------------------------
 	htmlTmpl := `<!DOCTYPE html>
 <html lang="en">
 
@@ -77,12 +90,28 @@ func NewStaticSiteGenerator(path string) *StaticSiteGenerator {
 </body>
 </html>`
 
-	cssTmpl := `*,
+	//------------------------- CSS TEMPLATE -----------------------------------
+	cssTmpl := `:root {
+  --surface: {{.Surface}};
+  --surface2: {{.Surface2}};
+  --surface3: {{.Surface3}};
+  --onsurface: {{.OnSurface}};
+  --primary: {{.Primary}};
+  --secondary: {{.Secondary}};
+}
+
+*,
 *::before,
 *::after {
   margin: 0;
   padding: 0;
   box-sizing: inherit;
+  background-color: var(--surface);
+  color: var(--onsurface);
+}
+
+*:focus {
+  outline: 2px solid var(--secondary);
 }
 
 html {
@@ -95,24 +124,91 @@ body {
   height: 100vh;
 }
 
-.search-container {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    text-align: center;
-    max-width: 600px;
-    margin: auto;
+p, h1, h2, h3, a {
+  opacity: 0.87;
+  text-decoration: none;
+  font-family: Helvetica, Verdana, sans-serif;
 }
 
-.search-container > h1 {
-    padding: 100px;
+.center-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  max-width: 640px;
+  margin: auto;
+}
+
+.center-content > h1 {
+  padding: 64px;
+  margin-bottom: 4px;
+}
+
+#search-container {
+  border-radius: 24px;
+}
+
+#search-bar {
+  background-color: var(--surface3);
+  border-radius: 24px;
+  border: none;
+  height: 48px;
+  width: 100%;
+  padding: 0px 24px 0px 24px;
+  font-size: 2.0rem;
+}
+
+.dropdown-content {
+  background-color: rgba(0,0,0,0);
+  text-align: left;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.dropdown-content > a {
+  background-color: rgba(0,0,0,0);
+  display: inline-block;
+  width: 100%;
+  padding: 8px;
+  font-weight: bold;
+  border-radius: 6px;
+  opacity: 0.60;
+  margin-bottom: 4px;
+}
+
+.dropdown-content > a:hover {
+  opacity: 0.87;
+}
+.dropdown-content > a:focus {
+  opacity: 0.87;
+}
+
+.topnav {
+  display: flex;
+  height: 48px;
+  text-align: center;
+  border-bottom: 1px solid var(--surface2);
+}
+
+.topnav > a {
+  align-content: center;
+  min-width: 96px;
+  font-weight: bold;
+  opacity: 0.60;
+  margin: 4px;
+}
+
+.topnav > a:hover {
+  opacity: 0.87;
 }`
 
+	//------------------------- JS TEMPLATE ------------------------------------
 	jsTmpl := `class RadixNode{constructor(e,i=!1){this.edgeLabel=e,this.children=Object.create(null),this.isWord=i}static largestCommonPrefix(i,s){let t="";for(let e=0;e<Math.min(i.length,s.length);e++){if(i[e]!==s[e])return t;t+=i[e]}return t}insert(e){var i,s,t,r,h,n;this.edgeLabel!==e||this.isWord?(i=e[0])in this.children?(r=(n=this.children[i]).edgeLabel,t=(s=RadixNode.largestCommonPrefix(r,e))[0],r=r.substring(s.length),h=e.substring(s.length),""!==r&&(n.edgeLabel=r,n=this.children[t],this.children[t]=new RadixNode(s,!1),this.children[t].children[r[0]]=n,""===h)?this.children[t].isWord=!0:this.children[t].insert(h)):this.children[i]=new RadixNode(e,!0):this.isWord=!0}static searchList=[];search(e,i=""){if(i+=this.edgeLabel,e=e.substring(this.edgeLabel.length),this.isWord&&i.includes(e)&&RadixNode.searchList.push(i),""!==e)e[0]in this.children&&this.children[e[0]].search(e,i);else for(var s of Object.values(this.children))s.search("",i)}print(e=0){0!==this.edgeLabel&&console.log("-".repeat(e),this.edgeLabel,this.isWord?" (leaf)":"");for(var i of Object.values(this.children))i.print(e+1)}}class RadixTree{constructor(){this.root=new RadixNode("")}insert(e){this.root.insert(e)}search(e){var i=[];for(this.root.search(e);0<RadixNode.searchList.length;)i.push(RadixNode.searchList.pop());return i}print(){this.root.print()}}
 
 const metaData = {{.}};
 const pageTrie = new RadixTree();
 const dropdown = document.getElementById("dropdown");
+const searchContainer = document.getElementById("search-container");
 const searchBar = document.getElementById("search-bar");
 
 function capitalize(str) {
@@ -129,6 +225,7 @@ function updateSearchResults() {
 
   if (!searchText) {
     dropdown.replaceChildren(resultNodes);
+    searchContainer.style.backgroundColor = "var(--surface)";
     return;
   }
 
@@ -140,7 +237,10 @@ function updateSearchResults() {
     result.href = "static/pages/" + page + ".html";
     resultNodes.push(result);
   }
-  dropdown.replaceChildren(...resultNodes);
+  if (resultNodes.length > 0) {
+    dropdown.replaceChildren(...resultNodes);
+    searchContainer.style.backgroundColor = "var(--surface3)";
+  }
 }
 
 console.log("Building page index..");
@@ -212,10 +312,13 @@ func (ssg StaticSiteGenerator) MakeWiki() {
 }
 
 func (ssg StaticSiteGenerator) RenderIndex() {
-	indexBody := "<div class=\"search-container\">\n" +
+
+	indexBody := "<div class=\"center-content\">\n" +
 		"  <h1>" + ssg.Config.Title + "</h1>" + `
-  <input type="search" id="search-bar" placeholder="Search..." onkeyup="updateSearchResults();" autocomplete="off" autofocus="true">
-  <div id="dropdown" class="dropdown-content">
+  <div id="search-container">
+    <input type="text" id="search-bar" placeholder="Search..." onkeyup="updateSearchResults();" autocomplete="off" autofocus="true">
+    <div id="dropdown" class="dropdown-content">
+    </div>
   </div>
 </div>
 <script src="bundle.js"></script>`
@@ -347,7 +450,7 @@ func (ssg StaticSiteGenerator) RenderCSS() {
 	}
 	defer cssFile.Close()
 
-	err = ssg.CSSTemplate.Execute(cssFile, nil)
+	err = ssg.CSSTemplate.Execute(cssFile, ssg.Config)
 	if err != nil {
 		log.Println(err)
 	}
