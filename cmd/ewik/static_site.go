@@ -367,6 +367,7 @@ function updateSearchResults() {
     let result = document.createElement('a');
     result.innerText = nameToTitle(page);
     result.className = "search-result";
+    result.target = "_blank";
     result.href = "static/pages/" + page + ".html";
     resultNodes.push(result);
   }
