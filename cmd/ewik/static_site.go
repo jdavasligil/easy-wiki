@@ -27,6 +27,7 @@ type WikiConfig struct {
 	OnSurface string `json:"theme-text"`
 	Primary   string `json:"theme-primary"`
 	Secondary string `json:"theme-secondary"`
+	Accent    string `json:"theme-accent"`
 }
 
 // JSMetaData stores data about the pages.
@@ -62,6 +63,7 @@ func NewStaticSiteGenerator(path string) *StaticSiteGenerator {
 		OnSurface: "#FFFFFF",
 		Primary:   "#C588F9",
 		Secondary: "#5E9ED6",
+		Accent:    "#F6C177",
 	}
 	jsMeta := &JSMetaData{
 		Pages:             make([]string, 0, 128),
@@ -98,6 +100,7 @@ func NewStaticSiteGenerator(path string) *StaticSiteGenerator {
   --onsurface: {{.OnSurface}};
   --primary: {{.Primary}};
   --secondary: {{.Secondary}};
+  --accent: {{.Accent}};
 }
 
 *,
@@ -125,7 +128,7 @@ body {
 }
 
 p, h1, h2, h3, a {
-  opacity: 0.87;
+  opacity: 0.80;
   text-decoration: none;
   font-family: Helvetica, Verdana, sans-serif;
 }
@@ -137,10 +140,11 @@ p, h1, h2, h3, a {
   text-align: center;
   max-width: 640px;
   margin: auto;
+  padding: 0px 10px;
 }
 
 .center-content > h1 {
-  padding: 64px;
+  padding: 114px 32px 64px 32px;
   margin-bottom: 4px;
 }
 
@@ -176,18 +180,20 @@ p, h1, h2, h3, a {
   margin-bottom: 4px;
 }
 
-.dropdown-content > a:hover {
-  opacity: 0.87;
-}
+.dropdown-content > a:hover,
 .dropdown-content > a:focus {
   opacity: 0.87;
 }
 
 .topnav {
+  position: fixed;
+  top: 0px;
   display: flex;
   height: 48px;
+  width: 100%;
   text-align: center;
   border-bottom: 1px solid var(--surface2);
+  z-index: 10;
 }
 
 .topnav > a {
@@ -196,10 +202,137 @@ p, h1, h2, h3, a {
   font-weight: bold;
   opacity: 0.60;
   margin: 4px;
+  z-index: 11;
 }
 
-.topnav > a:hover {
+.topnav > a:hover,
+.topnav > a:focus {
   opacity: 0.87;
+}
+
+.page-content {
+  padding: 64px 16px;
+  word-wrap: break-word;
+  line-height: 1.5;
+  max-width: 1012px;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.page-content > :is(h1, h2, h3, h4, h5, h6) {
+  margin-top: 1.6rem;
+  margin-bottom: 1.0rem;
+}
+
+.page-content > p {
+  margin-top: 1.0rem;
+  margin-bottom: 1.0rem;
+}
+
+.page-content a {
+  color: var(--secondary);
+  opacity: 1.0;
+}
+
+.page-content a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+blockquote {
+  border-left: 6px solid var(--surface3);
+  margin: 1.5em 10px;
+  padding: 0.5em 10px;
+}
+
+blockquote p {
+  display: inline;
+}
+
+ul, ol {
+  margin: 0.5em 10px 1.0em 10px;
+}
+
+li {
+  margin: 0.5em 10px 0.5em 10px ;
+}
+
+li > p {
+  margin-left: 0.5em;
+}
+
+code {
+  display: inline;
+  font-family: "Lucida Console", Monaco, monospace;
+  color: var(--accent);
+  background: var(--surface2);
+  border-radius: 4px;
+  padding: 2px;
+  margin: 0;
+  overflow: visible;
+  line-height: inherit;
+  word-wrap: normal;
+  word-break: normal;
+  opacity: 1.0;
+}
+
+pre {
+  display: block;
+  background: var(--surface2);
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 0;
+  margin-bottom: 16px;
+  overflow: auto;
+  line-height: 1.45;
+  word-wrap: normal;
+}
+
+img {
+  max-width: 100%;
+  box-sizing: content-box;
+}
+
+table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow: auto;
+  margin-top: 0;
+  margin-bottom: 16px;
+  border-collapse: collapse;
+  border-spacing: 0;
+  border-color: var(--surface3);
+  font-family: sans-serif;
+  opacity: 0.8;
+}
+
+thead {
+  display: table-header-group;
+  vertical-align: middle;
+}
+
+tr {
+  border-top: 1px solid var(--surface3);
+  vertical-align: inherit;
+  border-color: inherit;
+}
+
+tr:nth-child(even) {background-color: var(--surface2);}
+
+th, td {
+  padding: 6px 13px;
+  border: 1px solid var(--surface3);
+  background-color: rgba(0,0,0,0);
+}
+
+th {
+  font-weight: 600;
+}
+
+td {
+  display: table-cell;
+  vertical-align: inherit;
 }`
 
 	//------------------------- JS TEMPLATE ------------------------------------
@@ -257,7 +390,7 @@ console.log("Done.");`
 		CSSTemplate:  template.Must(template.New("styles").Parse(cssTmpl)),
 		JSTemplate:   template.Must(template.New("script").Parse(jsTmpl)),
 		MDParser: goldmark.New(
-			goldmark.WithExtensions(extension.GFM, meta.Meta),
+			goldmark.WithExtensions(extension.GFM, meta.Meta, extension.Typographer),
 			goldmark.WithRendererOptions(
 				html.WithUnsafe(),
 			),
@@ -381,8 +514,18 @@ func (ssg StaticSiteGenerator) RenderPages() {
 			continue
 		}
 
+		_, err = htmlBuf.WriteString("<div class=\"page-content\">\n")
+		if err != nil {
+			log.Println(err)
+		}
+
 		ctx := parser.NewContext()
 		err = ssg.MDParser.Convert(mdData, &htmlBuf, parser.WithContext(ctx))
+		if err != nil {
+			log.Println(err)
+		}
+
+		_, err = htmlBuf.WriteString("</div>")
 		if err != nil {
 			log.Println(err)
 		}

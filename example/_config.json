@@ -1,6 +1,10 @@
 {
   "title": "Example Wiki",
-  "darkmode": false,
-  "language": "",
-  "bg-color-light": "#AAFFAA"
+  "theme-background": "#242424",
+  "theme-background2": "#363636",
+  "theme-background3": "#484848",
+  "theme-text": "#FFFFFF",
+  "theme-primary": "#C588F9",
+  "theme-secondary": "#5E9ED6",
+  "theme-accent": "#F6C177"
 }
